@@ -334,11 +334,15 @@ const SelectionLayer = observer(({ item, selectionArea }) => {
     window.addEventListener('keyup', handleKey);
     window.addEventListener('mousedown', dragHandler);
     window.addEventListener('mouseup', dragHandler);
+    window.addEventListener('touchstart', dragHandler);
+    window.addEventListener('touchend', dragHandler);
     return () => {
       window.removeEventListener('keydown', handleKey);
       window.removeEventListener('keyup', handleKey);
       window.removeEventListener('mousedown', dragHandler);
       window.removeEventListener('mouseup', dragHandler);
+      window.removeEventListener('touchstart', dragHandler);
+      window.removeEventListener('touchend', dragHandler);
     };
   }, []);
 
@@ -579,13 +583,30 @@ export default observer(
         ) {
           window.addEventListener('mousemove', this.handleGlobalMouseMove);
           window.addEventListener('mouseup', this.handleGlobalMouseUp);
-          const { offsetX: x, offsetY: y } = e.evt;
+          window.addEventListener('touchmove', this.handleGlobalMouseMove);
+          window.addEventListener('touchend', this.handleGlobalMouseUp);
+          // const { offsetX: x, offsetY: y } = e.evt;
+          let x_pos = e.evt.offsetX ?? e.evt.layerX;
+          let y_pos = e.evt.offsetY ?? e.evt.layerY;
+
+          if (e.evt.type.includes('touch')) {
+            if (e.evt.touches.length === 1) {
+              x_pos = e.evt.touches[0].clientX - this.canvasX;
+              y_pos = e.evt.touches[0].clientY - this.canvasY;
+            } else if (e.evt.touches.length > 1) {
+              // Do nothing, allow default multi-touch behavior
+              item.event('multitouchdown', e, e.evt.touches);
+              return;
+            }
+          }
+
+
           // store the canvas coords for calculations in further events
           const { left, top } = item.containerRef.getBoundingClientRect();
 
           this.canvasX = left;
           this.canvasY = top;
-          item.event('mousedown', e, x, y);
+          item.event('mousedown', e, x_pos, y_pos);
 
           return true;
         }
@@ -631,6 +652,8 @@ export default observer(
     handleGlobalMouseUp = e => {
       window.removeEventListener('mousemove', this.handleGlobalMouseMove);
       window.removeEventListener('mouseup', this.handleGlobalMouseUp);
+      window.removeEventListener('touchmove', this.handleGlobalMouseMove);
+      window.removeEventListener('touchend', this.handleGlobalMouseUp);
 
       if (e.target && e.target.tagName === 'CANVAS') return;
 
@@ -655,6 +678,7 @@ export default observer(
      * Mouse up on Stage
      */
     handleMouseUp = e => {
+
       const { item } = this.props;
 
       if (isFF(FF_DEV_1442)) {
@@ -664,10 +688,37 @@ export default observer(
       item.freezeHistory();
       item.setSkipInteractions(false);
 
-      return item.event('mouseup', e, e.evt.offsetX, e.evt.offsetY);
+      let x_pos = e.evt.offsetX ?? e.evt.layerX;
+      let y_pos = e.evt.offsetY ?? e.evt.layerY;
+
+      if (e.evt.type.includes('touch')) {
+        if (e.evt.changedTouches.length === 1) {
+          x_pos = e.evt.changedTouches[0].clientX - this.canvasX;
+          y_pos = e.evt.changedTouches[0].clientY - this.canvasY;
+        } else if (e.evt.changedTouches.length > 1) {
+          // Handle multiple touch points
+          // ...code here...
+          return;
+        }
+      }
+
+      return item.event('mouseup', e, x_pos, y_pos);
     };
 
     handleMouseMove = e => {
+      let x_pos = e.evt.offsetX ?? e.evt.layerX;
+      let y_pos = e.evt.offsetY ?? e.evt.layerY;
+
+      if (e.evt.type.includes('touch')) {
+        if (e.evt.touches.length === 1) {
+          x_pos = e.evt.touches[0].clientX - this.canvasX;
+          y_pos = e.evt.touches[0].clientY - this.canvasY;
+        } else if (e.evt.touches.length === 2) {
+          //Pan and zoom with two touches
+          return;
+        }
+      }
+
       const { item } = this.props;
 
       item.freezeHistory();
@@ -694,7 +745,7 @@ export default observer(
 
         item.setZoomPosition(newPos.x, newPos.y);
       } else {
-        item.event('mousemove', e, e.evt.offsetX, e.evt.offsetY);
+        item.event('mousemove', e, x_pos, y_pos);
       }
     };
 
@@ -1068,6 +1119,9 @@ export default observer(
                 onMouseUp={this.handleMouseUp}
                 onWheel={item.zoom ? this.handleZoom : () => {
                 }}
+                onTouchStart={this.handleMouseDown}
+                onTouchMove={this.handleMouseMove}
+                onTouchEnd={this.handleMouseUp}
               >
                 {/* Hack to keep stage in place when there's no regions */}
                 {regions.length === 0 && (

@@ -264,6 +264,19 @@ const PolygonPointView = observer(({ item, name }) => {
       t.setAttr('scaleX', 1);
       t.setAttr('scaleY', 1);
     },
+    onTouchStart: e => {
+      const touchPos = e.target.getStage().getPointerPosition();
+
+      item.handleTouchOverStartPoint(touchPos);
+    }, onTouchMove: e => {
+      const touchPos = e.target.getStage().getPointerPosition();
+
+      item.handleTouchOverStartPoint(touchPos);
+    },
+  
+    onTouchEnd: _ => {
+      item.handleTouchOutStartPoint();
+    },
   };
 
   const fill = item.selected ? 'green' : 'white';

@@ -42,10 +42,17 @@ const ToolView = observer(({ item }) => {
 
         item.manager.selectTool(item, true);
       }}
+      onTouchEnd={() => {
+        if (item.selected) return;
+
+        item.manager.selectTool(item, true);
+      }}
       controls={item.controls}
     />
   );
 });
+
+
 
 const _Tool = types
   .model('BrushTool', {
@@ -138,9 +145,10 @@ const _Tool = types
         brush.addPoint(Math.floor(x), Math.floor(y));
       },
 
-      mouseupEv(ev, _, [x, y]) {
+      mouseupEv(ev, _) { //, [x, y]) {
         if (self.mode !== 'drawing') return;
-        self.addPoint(x, y);
+        if (ev.type === 'touchend' && ev.touches.length > 1) return;
+        // self.addPoint(x, y);
         self.mode = 'viewing';
         brush.setDrawing(false);
         brush.endPath();
@@ -159,6 +167,12 @@ const _Tool = types
       },
 
       mousemoveEv(ev, _, [x, y]) {
+        if (ev.type === 'touchmove' && ev.touches.length > 1 && this.touchTimeout) {
+          clearTimeout(this.touchTimeout);
+          this.touchTimeout = null;
+          return;
+        }
+        ev.preventDefault();
         if (self.mode !== 'drawing') return;
         if (
           !findClosestParent(
@@ -171,26 +185,24 @@ const _Tool = types
 
         self.addPoint(x, y);
       },
-
-      mousedownEv(ev, _, [x, y]) {
+      startDrawing(ev, x, y) {
         if (
           !findClosestParent(
             ev.target,
             el => el === self.obj.stageRef.content,
             el => el.parentElement,
           )
-        )
-          return;
+        ) return;
+      
         const c = self.control;
         const o = self.obj;
 
         brush = self.getSelectedShape;
-
+      
         // prevent drawing when current image is
         // different from image where the brush was started
         if (o && brush && o.multiImage && o.currentImage !== brush.item_index) return;
-
-        // Reset the timer if a user started drawing again
+      
         if (brush && brush.type === 'brushregion') {
           self.annotation.history.freeze();
           self.mode = 'drawing';
@@ -201,7 +213,7 @@ const _Tool = types
             type: 'add',
             strokeWidth: self.strokeWidth || c.strokeWidth,
           });
-
+      
           self.addPoint(x, y);
         } else {
           if (isFF(FF_DEV_3666) && !self.canStartDrawing()) return;
@@ -214,13 +226,36 @@ const _Tool = types
             touches: [],
             coordstype: 'px',
           });
-
+      
           brush.beginPath({
             type: 'add',
             strokeWidth: self.strokeWidth || c.strokeWidth,
           });
-
+      
           self.addPoint(x, y);
+        }
+      },
+
+      mousedownEv(ev, _, [x, y]) {
+        if (ev.type === 'touchstart') {
+          // Add a delay before starting the drawing process
+          this.touchTimeout = setTimeout(() => {
+            // Start the drawing operation if no second touch detected
+            ev.preventDefault();
+            this.startDrawing(ev, x, y);
+          }, 50); // Adjust the delay as needed
+      
+          return;
+        }
+      
+        // For non-touch events, process normally
+        this.startDrawing(ev, x, y);
+      },
+      multitouchdownEv(_, __) {
+        if (this.touchTimeout) {
+          clearTimeout(this.touchTimeout);
+          this.touchTimeout = null;
+          return;
         }
       },
     };

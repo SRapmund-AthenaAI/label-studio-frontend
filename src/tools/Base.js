@@ -17,6 +17,9 @@ const ToolView = observer(({ item }) => {
       onClick={() => {
         item.manager.selectTool(item, true);
       }}
+      onTouchEnd={() => {
+        item.manager.selectTool(item, true);
+      }}
     />
   );
 });

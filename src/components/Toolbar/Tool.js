@@ -29,6 +29,7 @@ export const Tool = ({
   label,
   shortcut,
   onClick,
+  onTouchEnd,
 }) => {
   let currentShortcut = shortcut;
   const dynamic = tool?.dynamic ?? false;
@@ -133,6 +134,16 @@ export const Tool = ({
       setHovered(true);
     }} onMouseLeave={() => {
       setHovered(false);
+    }}
+    onTouchEnd={(e) => {
+      e.preventDefault();
+      if (!disabled && !isAnnotationDrawing) {
+        if (tool?.unselectRegionOnToolChange) {
+          tool?.annotation?.unselectAreas?.();
+        }
+        onClick?.(e);
+        onTouchEnd?.(e);
+      }
     }}>
       <Elem name="icon">
         {icon}
